@@ -125,7 +125,8 @@ namespace EAAddinFramework.Databases
 				//logical attribute tag value
 				if (traceTaggedValue == null) createTraceTaggedValue();
 				
-
+        // InitialValue
+        this._wrappedattribute.setDefaultValue(this._initialValue);
 			}
 			//save the columnn name in the alias
 			if (logicalAttribute != null) logicalAttribute.save(); 
@@ -412,6 +413,28 @@ namespace EAAddinFramework.Databases
 				
 			}
 		}
+
+    internal string _initialValue;
+    public string initialValue 
+    {
+		get 
+		{
+			if( this._initialValue == null
+			&& this._wrappedattribute != null )
+			{
+				this._initialValue = this._wrappedattribute.defaultValue.ToString();
+			}
+			return this._initialValue;
+		}
+		set 
+		{
+			this._initialValue = value;
+			if (this._wrappedattribute != null)
+			{
+				_wrappedattribute.setDefaultValue(value);
+			}
+		}
+    }
 
 		#endregion
 

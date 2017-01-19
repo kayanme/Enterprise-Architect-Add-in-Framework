@@ -68,10 +68,22 @@ and c.StyleEx like '%LF_P="+this.wrappedAttribute.AttributeGUID+"%'"
       set { /* do nothing */ }
     }
 
-    public UML.Classes.Kernel.ValueSpecification defaultValue {
-      get { throw new NotImplementedException(); }
-      set { throw new NotImplementedException(); }
+    public UML.Classes.Kernel.ValueSpecification defaultValue 
+    {
+      get 
+      {
+      	return this.model.factory.createValueSpecificationFromString(this.wrappedAttribute.Default);
+      }
+      set 
+      {
+      	this.wrappedAttribute.Default = value.ToString();
+      }
     }
+	public void setDefaultValue(string defaultStringValue)
+	{
+		this.defaultValue = this.model.factory.createValueSpecificationFromString(defaultStringValue);
+	}
+
     
     public HashSet<UML.Classes.Kernel.Property> redefinedProperties {
       get { throw new NotImplementedException(); }

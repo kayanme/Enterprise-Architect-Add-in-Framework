@@ -9,6 +9,7 @@ using DB=DatabaseFramework;
 using DB_EA = EAAddinFramework.Databases;
 using EAAddinFramework.Utilities;
 using DDL_Parser;
+using TSF.UmlToolingFramework.Wrappers.EA;
 
 namespace EAAddinFramework.Databases.Transformation.DB2
 {
@@ -17,16 +18,17 @@ namespace EAAddinFramework.Databases.Transformation.DB2
 	/// </summary>
 	public class DB2DatabaseTransformer:EADatabaseTransformer
 	{
+		private string outputName = "DB2DatabaseTransformer.complete";
 		internal List<DB2TableTransformer> externalTableTransformers = new List<DB2TableTransformer>();
 		internal Database _externalDatabase;
-		public DB2DatabaseTransformer(UTF_EA.Package logicalPackage,NameTranslator nameTranslator):this(logicalPackage.model, nameTranslator)
+		public DB2DatabaseTransformer(UTF_EA.Package logicalPackage,NameTranslator nameTranslator, bool compareOnly = false):this(logicalPackage.model, nameTranslator,compareOnly)
 		{
 			this._logicalPackage = logicalPackage;
 		}
-		public DB2DatabaseTransformer(UTF_EA.Model model,NameTranslator nameTranslator):this(getFactory(model),model,nameTranslator)
+		public DB2DatabaseTransformer(UTF_EA.Model model,NameTranslator nameTranslator,bool compareOnly = false):this(getFactory(model),model,nameTranslator,compareOnly)
 		{
 		}
-		public DB2DatabaseTransformer(DatabaseFactory factory,UTF_EA.Model model,NameTranslator nameTranslator):base(factory,model,nameTranslator)
+		public DB2DatabaseTransformer(DatabaseFactory factory,UTF_EA.Model model,NameTranslator nameTranslator,bool compareOnly = false):base(factory,model,nameTranslator,compareOnly)
 		{
 			this._externalDatabase = factory.createDatabase("external");
 		}
@@ -212,14 +214,74 @@ namespace EAAddinFramework.Databases.Transformation.DB2
 			return newColumns;
 		}
 
-    public void complete(Database database, DDL withDDL) {
+
+    public void complete(Database database, DDL withDDL) 
+    {
+    	EAOutputLogger.clearLog(this._model,this.outputName);
       this.log( string.Format(
-        "completing {0} statements with {1} errors",
+        "completing {0} statements (parsed with {1} errors)",
         withDDL.statements.Count, withDDL.errors.Count
       ));
-      this.fixUniqueIndexes(database, withDDL);
-    }
+      
+      // perform several fixes to complete the schema according to the DDL
+      this.fixUniqueIndexes               (database, withDDL);
+      this.fixClusteredIndexes            (database, withDDL);
+      this.fixOnDeleteRestrictForeignKeys (database, withDDL);
+      this.fixWithDefaultFields           (database, withDDL);
+      this.fixIncludedFieldsInIndex       (database, withDDL);
+      this.fixCheckConstraints			  (database, withDDL);
 
+    }
+	
+	void fixCheckConstraints(Database database, DDL withDDL)
+	{
+      var fieldsWithConstraints =  from table in withDDL.statements.OfType<CreateTableStatement>()
+            from field in table.Fields
+      		from constraint in field.Constraints.OfType<DDL_Parser.CheckConstraint>()
+          select new {
+            Table      = table.SimpleName,
+            FieldName       = field.SimpleName,
+            Constraintname = constraint.Field.Name,
+            ConstraintRules = constraint.Rules
+          };
+      int fixes = 0;
+      foreach(var field in fieldsWithConstraints) {
+        // find table
+        var table = (Table)database.getTable(field.Table);
+  			if( table != null ) {
+          // find field
+          var column = (Column)table.getColumn(field.FieldName);
+          if( column != null ) 
+          {
+          	var checkConstraint = table.constraints.OfType<CheckConstraint>()
+          		.FirstOrDefault( x => x.name.Equals(field.Constraintname,StringComparison.InvariantCultureIgnoreCase));
+            if(checkConstraint == null) 
+            {
+            	checkConstraint = new CheckConstraint(field.Constraintname, column,field.ConstraintRules);
+            	checkConstraint.save();
+                fixes++;
+            }
+            else
+            {
+            	if (checkConstraint.rule != field.ConstraintRules)
+            	{
+            		checkConstraint.rule = field.ConstraintRules;
+            		checkConstraint.save();
+            		fixes++;
+            	}
+            }
+          } else {
+            this.log( "WARNING: field " + table.name + "."  + field.FieldName + " not found" );
+          }
+        } else {
+          this.log( "WARNING: table " + field.Table + " not found" );
+        }
+      }
+      this.log(string.Format(
+        "RESULT: Fix check constraints: fixed {0}/{1}",
+        fixes, fieldsWithConstraints.Count()
+      ));
+	}
     private void fixUniqueIndexes(Database database, DDL withDDL) {
       // find all unique indexes
       var indexes =  from index in withDDL.statements.OfType<CreateIndexStatement>()
@@ -241,7 +303,7 @@ namespace EAAddinFramework.Databases.Transformation.DB2
               this.log( "FIXED " + index.Name + "'s missing UNIQUE constraint");
             }
           } else {
-            this.log( "WARNING: index " + index.Name + " not found" );
+            this.log( "WARNING: index " + table.name+ "." + index.Name + " not found" );
           }
         } else {
           this.log( "WARNING: table " + index.Table + " not found" );
@@ -253,8 +315,153 @@ namespace EAAddinFramework.Databases.Transformation.DB2
       ));
     }
 
+    private void fixClusteredIndexes(Database database, DDL withDDL) {
+      // find all Clustered indexes
+      var indexes =  from index in withDDL.statements.OfType<CreateIndexStatement>()
+                    where index.Parameters.Keys.Contains("CLUSTER")
+                       && index.Parameters["CLUSTER"] == "True"
+                   select index;
+
+      int fixes = 0;
+      foreach(var index in indexes) {
+        // find table
+        var table = (Table)database.getTable(index.Table.Name);
+  			if( table != null ) {
+  			  // find constraint
+          var constraint = (Index)table.getConstraint(index.SimpleName);
+          if( constraint != null ) {
+            if( ! constraint.isClustered ) {
+              constraint.isClustered = true;
+              fixes++;
+              this.log( "FIXED " + index.Name + "'s missing CLUSTERED constraint");
+            }
+          } else {
+            this.log( "WARNING: index "+ table.name+ "." + index.Name + " not found" );
+          }
+        } else {
+          this.log( "WARNING: table " + index.Table + " not found" );
+        }
+      }
+      this.log(string.Format(
+        "RESULT: Fix Clustered index: fixed {0}/{1}",
+        fixes, indexes.Count()
+      ));
+    }
+
+    private void fixOnDeleteRestrictForeignKeys(Database database, DDL withDDL) {
+      var keys = from alter in withDDL.statements.OfType<AlterTableAddConstraintStatement>()
+                where alter.Constraint is ForeignKeyConstraint
+                   && alter.Constraint.Parameters.Keys.Contains("ON_DELETE")
+                   && alter.Constraint.Parameters["ON_DELETE"] == "RESTRICT"
+               select new {
+                 Table      = alter.Table,
+                 Name       = alter.Constraint.Name,
+                 SimpleName = alter.Constraint.SimpleName
+               };
+
+      int fixes = 0;
+      foreach(var key in keys) {
+        // find table
+        var table = (Table)database.getTable(key.Table.Name);
+        if( table != null ) {
+          // find constraint
+          var constraint = (ForeignKey)table.getConstraint(key.SimpleName);
+          if( constraint != null ) {
+            if( ! constraint.onDelete.Equals("Restrict") ) {
+              constraint.onDelete = "Restrict";
+              fixes++;
+              this.log( "FIXED " + key.Name + "'s missing On Delete Restrict constraint");
+            }
+          } else {
+            this.log( "WARNING: foreign key " + table.name + "." + key.Name + " not found" );
+          }
+        } else {
+          this.log( "WARNING: table " + key.Table + " not found" );
+        }
+      }
+      this.log(string.Format(
+        "RESULT: Fix On Delete Restrict foreign keys: fixed {0}/{1}",
+        fixes, keys.Count()
+      ));
+    }
+
+    private void fixWithDefaultFields(Database database, DDL withDDL) {
+      var fields =  from table in withDDL.statements.OfType<CreateTableStatement>()
+                    from field in table.Fields
+                   where field.Parameters.Keys.Contains("DEFAULT")
+                      && field.Parameters["DEFAULT"] == "True"
+                  select new {
+                    Table      = table.Name,
+                    Name       = field.Name,
+                    SimpleName = field.SimpleName
+                  };
+
+      int fixes = 0;
+      foreach(var field in fields) {
+        // find table
+        var table = (Table)database.getTable(field.Table.Name);
+  			if( table != null ) {
+          // find field
+          var column = (Column)table.getColumn(field.SimpleName);
+          if( column != null ) {
+            if( ! column.initialValue.Equals("DEFAULT") ) {
+              column.initialValue = "DEFAULT";
+              column.save();
+              fixes++;
+            }
+          } else {
+            this.log( "WARNING: field " + table.name + "."  + field.Name + " not found" );
+          }
+        } else {
+          this.log( "WARNING: table " + field.Table + " not found" );
+        }
+      }
+      this.log(string.Format(
+        "RESULT: Fix With Default field: fixed {0}/{1}",
+        fixes, fields.Count()
+      ));
+    }
+
+    private void fixIncludedFieldsInIndex(Database database, DDL withDDL) {
+      // find all Clustered indexes
+      var indexes =  from index in withDDL.statements.OfType<CreateIndexStatement>()
+                    where index.Parameters.Keys.Contains("INCLUDE")
+                   select index;
+
+      int fixes = 0;
+      foreach(var index in indexes) {
+        // find table
+        var table = (Table)database.getTable(index.Table.Name);
+  			if( table != null ) {
+  			  // find constraint
+          var constraint = (Index)table.getConstraint(index.SimpleName);
+          if( constraint != null ) {
+            string columnName = index.Parameters["INCLUDE"];
+            // step 1: remove involved column
+            var column = (Column)constraint.getInvolvedColumn(columnName);
+            if( column != null ) {
+              // mark the column as included in the constraint
+              constraint.markAsIncluded(column);
+            } else {
+              this.log( "WARNING: column " + table.name + "."  + columnName + " not found" );
+            }
+            fixes++;
+            this.log( "MARKED " + index.Name + "'s INCLUDE column");
+          } else {
+            this.log( "WARNING: index " + table.name + "."  + index.Name + " not found" );
+          }
+        } else {
+          this.log( "WARNING: table " + index.Table + " not found" );
+        }
+      }
+      this.log(string.Format(
+        "RESULT: Fix Included Column in Index: TODOs {0}/{1}",
+        fixes, indexes.Count()
+      ));
+    }
+
     private void log(string msg) {
-      EAOutputLogger.log( this._model, "DB2DatabaseTransformer.complete", msg );
+      EAOutputLogger.log( this._model, this.outputName, msg );
     }
 
 		#endregion

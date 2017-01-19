@@ -9,14 +9,37 @@
             Description of BaseDataType.
             </summary>
         </member>
-        <member name="T:EAAddinFramework.Databases.Column">
+        <member name="T:EAAddinFramework.Databases.CheckConstraint">
             <summary>
-            Description of Column.
+            Description of CheckConstraint.
+            </summary>
+        </member>
+        <member name="T:EAAddinFramework.Databases.Constraint">
+            <summary>
+            Description of Constraint.
             </summary>
         </member>
         <member name="T:EAAddinFramework.Databases.DatabaseItem">
             <summary>
             Description of DatabaseItem.
+            </summary>
+        </member>
+        <member name="M:EAAddinFramework.Databases.Constraint.removeColumn(DatabaseFramework.Column)">
+            <summary>
+            remove the given column from the involved columns
+            </summary>
+            <param name="column">the column to remove</param>
+        </member>
+        <member name="M:EAAddinFramework.Databases.Constraint.removeColumn(DatabaseFramework.Column,DatabaseFramework.Column)">
+            <summary>
+            remove the given columns from the involved columns and replace it by the replacement
+            </summary>
+            <param name="column"></param>
+            <param name="replacement"></param>
+        </member>
+        <member name="T:EAAddinFramework.Databases.Column">
+            <summary>
+            Description of Column.
             </summary>
         </member>
         <member name="P:EAAddinFramework.Databases.Column.isRemote">
@@ -40,24 +63,6 @@
             Description of EADatabaseItemComparison.
             </summary>
         </member>
-        <member name="T:EAAddinFramework.Databases.Constraint">
-            <summary>
-            Description of Constraint.
-            </summary>
-        </member>
-        <member name="M:EAAddinFramework.Databases.Constraint.removeColumn(DatabaseFramework.Column)">
-            <summary>
-            remove the given column from the involved columns
-            </summary>
-            <param name="column">the column to remove</param>
-        </member>
-        <member name="M:EAAddinFramework.Databases.Constraint.removeColumn(DatabaseFramework.Column,DatabaseFramework.Column)">
-            <summary>
-            remove the given columns from the involved columns and replace it by the replacement
-            </summary>
-            <param name="column"></param>
-            <param name="replacement"></param>
-        </member>
         <member name="T:EAAddinFramework.Databases.Database">
             <summary>
             Description of Database.
@@ -74,6 +79,14 @@
             </summary>
             <param name="type">the type of the factory</param>
             <param name="datatypes">the base datatypes for this factory</param>
+        </member>
+        <member name="M:EAAddinFramework.Databases.DatabaseFactory.createDataBase(TSF.UmlToolingFramework.Wrappers.EA.Package,System.Boolean)">
+            <summary>
+            creates a database based on the given package
+            </summary>
+            <param name="package">the «database»package containing the database</param>
+            <param name="compareOnly">if true then no indexes or check constraints are generated because we don't need them when comparing</param>
+            <returns>the created database</returns>
         </member>
         <member name="T:EAAddinFramework.Databases.DataType">
             <summary>
@@ -2432,6 +2445,36 @@
             Description of Action.
             </summary>
         </member>
+        <member name="T:TSF.UmlToolingFramework.Wrappers.EA.LiteralBoolean">
+            <summary>
+            Description of LiteralString.
+            </summary>
+        </member>
+        <member name="T:TSF.UmlToolingFramework.Wrappers.EA.ValueSpecification">
+            <summary>
+            Description of ValueSpecification.
+            </summary>
+        </member>
+        <member name="T:TSF.UmlToolingFramework.Wrappers.EA.LiteralInteger">
+            <summary>
+            Description of LiteralString.
+            </summary>
+        </member>
+        <member name="T:TSF.UmlToolingFramework.Wrappers.EA.LiteralNull">
+            <summary>
+            Description of LiteralString.
+            </summary>
+        </member>
+        <member name="T:TSF.UmlToolingFramework.Wrappers.EA.LiteralString">
+            <summary>
+            Description of LiteralString.
+            </summary>
+        </member>
+        <member name="T:TSF.UmlToolingFramework.Wrappers.EA.LiteralUnlimitedNatural">
+            <summary>
+            Description of LiteralString.
+            </summary>
+        </member>
         <member name="T:TSF.UmlToolingFramework.Wrappers.EA.Multiplicity">
             <summary>
             Multiplicity is an interval with a lower limit of type Unsigned Integer (Natural), and a upper limit of type UnlimitedNatural
@@ -3012,6 +3055,11 @@
             Description of Mapping.
             </summary>
         </member>
+        <member name="T:EAAddinFramework.Mapping.CSVMappingRecord">
+            <summary>
+            Description of CSVMappingRecord.
+            </summary>
+        </member>
         <member name="T:EAAddinFramework.Mapping.ElementMappingSet">
             <summary>
             Description of ElementMappingSet.
@@ -3040,6 +3088,14 @@
             <param name="key">the key to searche for</param>
             <param name = "source">the source string to search in</param>
             <returns>the value correspondign to the given key</returns>
+        </member>
+        <member name="M:EAAddinFramework.Mapping.MappingFactory.createMappingSet(TSF.UmlToolingFramework.Wrappers.EA.Model,System.String,TSF.UmlToolingFramework.Wrappers.EA.Element,TSF.UmlToolingFramework.Wrappers.EA.Element)">
+            <summary>
+            create a mappingSet based on the data in the CSV file
+            </summary>
+            <param name="model">the model that contains the elements</param>
+            <param name="filePath">the path to the CSV file</param>
+            <returns>a mapping set representing the mapping in the file</returns>
         </member>
         <member name="T:EAAddinFramework.Mapping.MappingLogic">
             <summary>
@@ -3243,6 +3299,7 @@
         <member name="M:EAAddinFramework.SchemaBuilder.EASchemaElement.addGeneralizations">
             <summary>
             Adds generalizations if the parent of the generalization is in the subset elements as well
+            or if the settings allow us to copy generalizations
             </summary>
         </member>
         <member name="M:EAAddinFramework.SchemaBuilder.EASchemaElement.matchSubsetAttributes">

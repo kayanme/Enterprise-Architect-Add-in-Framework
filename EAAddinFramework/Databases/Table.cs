@@ -37,7 +37,13 @@ namespace EAAddinFramework.Databases
 				return this.logicalClasses.Cast<UML.Classes.Kernel.Element>().ToList();
 			}
 		}
-		
+		internal bool compareOnly
+		{
+			get
+			{	
+				return ((Database)databaseOwner).compareonly;
+			}
+		}
 		public string tableSpace {
 			get 
 			{
@@ -382,6 +388,10 @@ namespace EAAddinFramework.Databases
     public DB.Constraint getConstraint(string name) {
       return this.constraints.FirstOrDefault(x => x.name == name);
     }
+    
+    public DB.Column getColumn(string name) {
+      return this.columns.FirstOrDefault(x => x.name == name);
+    }
 
 		public override string itemType {
 			get {return "Table";}
@@ -428,19 +438,23 @@ namespace EAAddinFramework.Databases
 							else if (operation.stereotypes.Any(x=> x.name.Equals("FK",StringComparison.InvariantCultureIgnoreCase)))
 							{
 								_constraints.Add(new ForeignKey(this, (Operation) operation));
-              } else if( operation.stereotypes.Any( x =>
-                  x.name.Equals("index",
-                                StringComparison.InvariantCultureIgnoreCase)))
-              {
-                _constraints.Add(new Index(this, (Operation) operation));
-              }
-							
+              				} 
+							//indexes and check constraints are not needed in compareOnly mode because they won't exist in the new database, and so we don't compare them.
+							else if( ! compareOnly && operation.stereotypes.Any( x => x.name.Equals("index",StringComparison.InvariantCultureIgnoreCase)))
+				            {
+				                _constraints.Add(new Index(this, (Operation) operation));
+				            }
+							else if(! compareOnly && operation.stereotypes.Any( x => x.name.Equals("check",StringComparison.InvariantCultureIgnoreCase)))
+				            {
+				                _constraints.Add(new CheckConstraint(this, (Operation) operation));
+				            }
 						}
 					}
 				}
 				return _constraints.Cast<DB.Constraint>().ToList();
 			}
-			set {
+			set 
+			{
 				throw new NotImplementedException();
 			}
 		}
