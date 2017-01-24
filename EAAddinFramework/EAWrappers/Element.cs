@@ -377,5 +377,23 @@ namespace TSF.UmlToolingFramework.Wrappers.EA {
             return (this.getLockedUser() != string.Empty);
     	}
     }
+    /// <summary>
+    /// finds the element based on the given descriptor
+    /// </summary>
+    /// <param name="itemDescriptor">the itemdescriptor</param>
+    /// <returns></returns>
+    public virtual List<UML.Extended.UMLItem> findOwnedItems(string itemDescriptor)
+    {
+    	//default implementation, search based on the fully qualified name
+    	var ownedItems = new List<UML.Extended.UMLItem>();
+    	var item = this.model.getItemFromFQN(this.fqn + "." + itemDescriptor);
+    	if (item != null) ownedItems.Add(item);
+    	return ownedItems;
+    }
+    public virtual List<UML.Extended.UMLItem> findOwnedItems(List<String> descriptionParts)
+    {
+    	//default implementation returns empty collection
+    	return new List<UML.Extended.UMLItem>();
+    }
   }
 }
