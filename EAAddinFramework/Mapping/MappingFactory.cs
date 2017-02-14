@@ -42,8 +42,8 @@ namespace EAAddinFramework.Mapping
 			//tagged value references from owned attributes	
 			foreach (TaggedValue mappedTaggedValue in attribute.taggedValues.Where(x => x.tagValue is Element) )
 			{
-				string mappingSourcePath = getValueForKey(mappingSourcePathName,mappedTaggedValue.comment);
-				string targetBasePath = getValueForKey(mappingTargetPathName,mappedTaggedValue.comment);
+				string mappingSourcePath = KeyValuePairsHelper.getValueForKey(mappingSourcePathName,mappedTaggedValue.comment);
+				string targetBasePath = KeyValuePairsHelper.getValueForKey(mappingTargetPathName,mappedTaggedValue.comment);
 
 				//if not filled in or corresponds to the attributeBasePath or the attributeBasePath + the name of the attribute
 				if (string.IsNullOrEmpty(mappingSourcePath) || mappingSourcePath == basepath 
@@ -126,50 +126,7 @@ namespace EAAddinFramework.Mapping
 			if (string.IsNullOrEmpty(connectorString)) connectorString = mappedConnector.target.name;
 			return connectorString;
 		}
-		/// <summary>
-		/// parses the the given source string for any keyvalue pairs and returns the value corresponding to the given key.
-		/// The format of the soure string is assumed as follows: key1=value1;key2=value2,...
-		/// </summary>
-		/// <param name="key">the key to searche for</param>
-		/// <param name = "source">the source string to search in</param>
-		/// <returns>the value correspondign to the given key</returns>
-		public static string getValueForKey(string key,string source)
-		{
-			//first split the string into keyvalue pairs
-			foreach (var keyValuePair in source.Split(';')) 
-			{
-				//then split the key and value
-				var keyValues = keyValuePair.Split('=');
-				if (keyValues.Count() >= 2 && keyValues[0] == key)
-				{
-					return keyValues[1];
-				}
-			}
-			//if nothing found then return null;
-			return null;
-		}
-		public static string setValueForKey(string key,string value,string source)
-		{
-			var keyValuePairs = new List<string>();
-			//first split the string into keyvalue pairs
-			if (!string.IsNullOrEmpty(source))
-			{
-				keyValuePairs = source.Split(new char[]{';'},StringSplitOptions.RemoveEmptyEntries).ToList();
-				foreach (var keyValuePair in keyValuePairs) 
-				{
-					//then split the key and value
-					var keyValues = keyValuePair.Split('=');
-					if (keyValues.Count() >= 2 && keyValues[0] == key)
-					{
-						keyValues[1] = value;
-						return source.Replace(keyValuePair, string.Join("=", keyValues));
-					}
-				}
-			}
-			//if nothing found then weadd it
-			keyValuePairs.Add(key + "=" + value);
-			return string.Join(";",keyValuePairs);
-		}
+
 		/// <summary>
 		/// create a mappingSet based on the data in the CSV file
 		/// </summary>
@@ -181,11 +138,11 @@ namespace EAAddinFramework.Mapping
 			MappingSet newMappingSet = null;
 			var engine = new FileHelperEngine<CSVMappingRecord>();
 			var parsedFile = engine.ReadFile(filePath);
-			int i = 0;
+			int i = 1;
 			Package rootPackage = null;
 			foreach (CSVMappingRecord mappingRecord in parsedFile) 
 			{
-				i++;
+				
 				//find source
 				var source = findElement(model, mappingRecord.sourcePath, sourceRootElement);
 				//find target
@@ -240,9 +197,12 @@ namespace EAAddinFramework.Mapping
 							 
 							 if (newMappingLogic == null) 
 							 {
+							 	 
 								 var mappingElement = model.factory.createNewElement(rootPackage, "mapping logic " + i,settings.mappingLogicType) as ElementWrapper;
 								 if (mappingElement != null)
 								 {
+								 	//increase counter for new mapping element name
+							 	 	i++;
 								 	mappingElement.notes = mappingRecord.mappingLogic;
 								 	mappingElement.save();
 								 	//create the mappingLogic
@@ -257,17 +217,21 @@ namespace EAAddinFramework.Mapping
 						}
 					}
 					Mapping newMapping = null;
+					var sourceAssociationEnd = source as AssociationEnd;
+					var targetAssociationEnd = target as AssociationEnd;
 					//create the new mapping
-					if (settings.useTaggedValues)
+					//we can't create connector mappings for mappings to or from associations so we have to use tagged value mappings for those.
+					if (settings.useTaggedValues
+					   || sourceAssociationEnd != null || targetAssociationEnd != null)
 					{
 						//if the source or target are associationEnds then we replace them by their association
-						if (source is AssociationEnd) source = ((AssociationEnd)source).association as Element;
-						if (target is AssociationEnd) target = ((AssociationEnd)target).association as Element;
+						if (sourceAssociationEnd != null) source = sourceAssociationEnd.association as Element;
+						if (targetAssociationEnd != null) target = targetAssociationEnd.association as Element;
 						newMapping = new TaggedValueMapping(source,target,mappingRecord.sourcePath,mappingRecord.targetPath,settings);
 					}
 					else
 					{
-						//TODO newMapping = new ConnectorMapping();
+						newMapping = new ConnectorMapping(source,target,mappingRecord.sourcePath,mappingRecord.targetPath,settings);
 					}
 					if (newMappingLogic != null) newMapping.mappingLogic = newMappingLogic;
 					newMapping.save();
@@ -276,6 +240,27 @@ namespace EAAddinFramework.Mapping
 				}
 			}
 			return newMappingSet;
+		}
+		public static void exportMappingSet(MappingSet mappingSet, string filePath)
+		{
+			if (mappingSet != null)
+			{
+				var engine = new FileHelperEngine<CSVMappingRecord>();
+				List<CSVMappingRecord> csvMappingRecords = new List<CSVMappingRecord>();
+				//create the CSV mapping records
+				foreach (var mapping in mappingSet.mappings)
+				{
+					//create the record
+					var mappingRecord = new CSVMappingRecord();
+					mappingRecord.sourcePath = mapping.source.fullMappingPath;
+					mappingRecord.targetPath = mapping.target.fullMappingPath;
+					mappingRecord.mappingLogic = mapping.mappingLogic != null ? mapping.mappingLogic.description : string.Empty;
+					//add the record to the list
+					csvMappingRecords.Add(mappingRecord);
+				}
+				//write the CSV mapping records to the filename
+				engine.WriteFile(filePath,csvMappingRecords);
+			}
 		}
 		/// <summary>
 		/// get the existng mapping logic in the given package with the given logic description in order to re-use existing mapping logics

@@ -2,11 +2,70 @@
 using System.Collections.Generic;
 using System.Linq;
 using UML=TSF.UmlToolingFramework.UML;
+using System.Runtime.CompilerServices;
 
 namespace TSF.UmlToolingFramework.Wrappers.EA {
- public abstract class Element : UML.Classes.Kernel.Element {
-    public Model model { get;  internal set; }
-
+ public abstract class Element : UML.Classes.Kernel.Element 
+ {
+ 	private Dictionary<string, PropertyInfo> properties = new Dictionary<string, PropertyInfo>();
+ 	protected class PropertyInfo
+ 	{
+ 		public PropertyInfo(object propertyValue, object initialValue)
+ 		{
+ 			this.propertyValue = propertyValue;
+ 			this.initialValue = initialValue;
+ 		}
+ 		public object propertyValue {get;set;}
+ 		public object initialValue {get;set;}
+ 		public bool isDirty
+ 		{
+ 			get
+ 			{
+ 				if (this.initialValue == null)
+ 				{
+ 					return (this.propertyValue != null);
+ 				}
+ 				else
+ 				{
+ 					return !this.initialValue.Equals(this.propertyValue);
+ 				}
+ 			}
+ 		}
+ 	}
+ 	protected object getProperty(string propertyName, object initialValue)
+ 	{
+ 		if (!properties.ContainsKey(propertyName))
+ 		{
+ 			properties.Add(propertyName,new PropertyInfo(initialValue,initialValue));
+ 		}
+ 		return properties[propertyName].propertyValue;
+ 	}
+ 	protected object getProperty(string propertyName)
+ 	{
+ 		return properties.ContainsKey(propertyName) ? properties[propertyName].propertyValue : null;
+ 	}
+ 	protected PropertyInfo getPropertyInfo(string propertyName)
+ 	{
+ 		return properties.ContainsKey(propertyName) ? properties[propertyName]: null;
+ 	}
+ 	protected void setProperty(string propertyName, object propertyValue,object initialValue)
+ 	{
+ 		if (properties.ContainsKey(propertyName))
+ 		{
+ 			properties[propertyName].propertyValue = propertyValue;
+ 		}
+ 		else
+ 		{
+ 			properties.Add(propertyName,new PropertyInfo(propertyValue,initialValue));
+		}
+ 	}
+ 	public static string getPropertyNameName([CallerMemberName] string name = null) 
+ 	{
+    	return name;
+	}
+ 	                        
+	public Model model { get;  internal set; }
+	
     internal Element(Model model){
       this.model = model;
     }
@@ -34,6 +93,19 @@ namespace TSF.UmlToolingFramework.Wrappers.EA {
 		set 
 		{
 			//do nothing
+		}
+	}
+	private bool _isDirty = true;
+	public virtual bool isDirty
+	{
+		get
+		{
+			if (this.properties.Any()) _isDirty = this.properties.Values.Any(x => x.isDirty);
+			return _isDirty;
+		}
+		set
+		{
+			_isDirty = value;
 		}
 	}
     public virtual HashSet<UML.Classes.Kernel.Comment> ownedComments
@@ -131,8 +203,12 @@ namespace TSF.UmlToolingFramework.Wrappers.EA {
 
     internal abstract void saveElement();
 
-    public virtual void save(){
-      this.saveElement();
+    public virtual void save()
+    {
+      if (isDirty)
+      {
+      	this.saveElement();
+      }
       foreach (UML.Classes.Kernel.Element element in this.ownedElements) {
         ((Element)element).save();
       }
@@ -193,7 +269,7 @@ namespace TSF.UmlToolingFramework.Wrappers.EA {
   	/// <returns>empty set</returns>
 	public virtual HashSet<UML.Profiles.TaggedValue> getReferencingTaggedValues()
 	{
-		return new HashSet<UML.Profiles.TaggedValue>();
+		return this.model.getTaggedValuesWithValue(this.uniqueID,true);
 	}
 	
 	public virtual string fqn 

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
+using System.Reflection;
 using System.Xml;
 using UML=TSF.UmlToolingFramework.UML;
 
@@ -21,27 +22,141 @@ namespace TSF.UmlToolingFramework.Wrappers.EA
       : base(model)
     {
       this.wrappedElement = wrappedElement;
+      this.isDirty = false;
     }
 	
-    public override string name {
-      get { return this.wrappedElement.Name;  }
-      set { this.wrappedElement.Name = value; }
+    public override string name 
+    {
+    	get 
+    	{
+    		return (string)this.getProperty(getPropertyNameName(),this.wrappedElement.Name);
+    	}
+		set 
+		{
+			this.setProperty(getPropertyNameName(),value,this.wrappedElement.Name);
+		}
     }
 	public string alias
 	{
-		get{return this.wrappedElement.Alias;}
-		set{this.wrappedElement.Alias = value;}
+    	get 
+    	{
+    		return (string)this.getProperty(getPropertyNameName(),this.wrappedElement.Alias);
+    	}
+		set 
+		{
+			this.setProperty(getPropertyNameName(),value,this.wrappedElement.Alias);
+		}		
 	}
 	public string status
 	{
-		get{return this.wrappedElement.Status;}
-		set{this.wrappedElement.Status = value;}
+		get 
+    	{
+			return (string)this.getProperty(getPropertyNameName(),this.wrappedElement.Status);
+    	}
+		set 
+		{
+			this.setProperty(getPropertyNameName(),value,this.wrappedElement.Status);
+		}	
 	}
 	public string genLinks
 	{
-		get{return this.wrappedElement.Genlinks;}
-		set{this.wrappedElement.Genlinks = value;}
+		get 
+    	{
+    		return (string)this.getProperty(getPropertyNameName(),this.wrappedElement.Genlinks);
+    	}
+		set 
+		{
+			this.setProperty(getPropertyNameName(),value,this.wrappedElement.Genlinks);
+		}	
 	}
+	public string phase
+	{
+		get 
+    	{
+    		return (string)this.getProperty(getPropertyNameName(),this.wrappedElement.Phase);
+    	}
+		set 
+		{
+			this.setProperty(getPropertyNameName(),value,this.wrappedElement.Phase);
+		}	
+	}
+	public override String notes 
+	{
+		get 
+    	{
+    		return (string)this.getProperty(getPropertyNameName(),this.wrappedElement.Notes);
+    	}
+		set 
+		{
+			this.setProperty(getPropertyNameName(),value,this.wrappedElement.Notes);
+		}	
+    }
+	    /// indicates whether this element is abstract.
+    /// In the EA API this is stored as a string with the values "0" or "1"
+    public bool isAbstract 
+    {
+    	get 
+    	{
+    		return (string)this.getProperty(getPropertyNameName(),this.wrappedElement.Abstract) == "1";
+    	}
+		set 
+		{
+			this.setProperty(getPropertyNameName(),value ? "1" : "0",this.wrappedElement.Abstract);
+		}	
+    	
+    }
+	public override int position 
+	{
+		get 
+    	{
+    		return (int)this.getProperty(getPropertyNameName(),this.wrappedElement.TreePos);
+    	}
+		set 
+		{
+			this.setProperty(getPropertyNameName(),value,this.wrappedElement.TreePos);
+		}	
+	}
+	/// the visibility indicates the scope of the element
+    public UML.Classes.Kernel.VisibilityKind visibility 
+    {
+    	get 
+    	{
+    		return VisibilityKind.getUMLVisibilityKind((string)this.getProperty(getPropertyNameName(),this.wrappedElement.Visibility),
+            UML.Classes.Kernel.VisibilityKind._public );
+    	}
+		set 
+		{
+			this.setProperty(getPropertyNameName(),VisibilityKind.getEAVisibility(value),this.wrappedElement.Visibility);
+		}
+    }
+    public void setStereotype(string stereotype)
+    {
+    	this.setProperty("stereotypes",stereotype,this.wrappedElement.StereotypeEx);
+    }
+    public override HashSet<UML.Profiles.Stereotype> stereotypes 
+    {
+    	get 
+    	{
+    		return ((Factory) this.model.factory).createStereotypes(this,(string)this.getProperty(getPropertyNameName(),this.wrappedElement.StereotypeEx));
+    	}
+		set 
+		{
+			this.setProperty(getPropertyNameName(),Stereotype.getStereotypeEx(value),this.wrappedElement.StereotypeEx);
+		}    	
+    }
+	internal override void saveElement()
+    {
+    	if (this.getProperty("name") != null) this.wrappedElement.Name = (string)this.getProperty("name");
+    	if (this.getProperty("alias") != null) this.wrappedElement.Alias = (string)this.getProperty("alias");
+    	if (this.getProperty("genLinks") != null) this.wrappedElement.Genlinks = (string)this.getProperty("genLinks");
+    	if (this.getProperty("subType") != null) this.wrappedElement.Type = (string)this.getProperty("subType");
+    	if (this.getProperty("notes") != null) this.wrappedElement.Notes = (string)this.getProperty("notes");
+    	if (this.getProperty("isAbstract") != null) this.wrappedElement.Abstract = (string)this.getProperty("isAbstract");
+    	if (this.getProperty("position") != null) this.wrappedElement.TreePos = (int)this.getProperty("position");
+    	if (this.getProperty("visibility") != null) this.wrappedElement.Visibility = (string)this.getProperty("visibility");
+    	if (this.getProperty("stereotypes") != null) this.wrappedElement.StereotypeEx = (string)this.getProperty("stereotypes");
+    	this.wrappedElement.Update();
+    }
 	public List<string> primitiveParentNames
 	{
 		get
@@ -63,11 +178,7 @@ namespace TSF.UmlToolingFramework.Wrappers.EA
 			return parentNames;
 		}
 	}
-	public string phase
-	{
-		get{return this.wrappedElement.Phase;}
-		set{this.wrappedElement.Phase = value;}
-	}
+
 	public virtual string EAElementType
 	{
 		get{return this.wrappedElement.Type;}
@@ -86,7 +197,8 @@ namespace TSF.UmlToolingFramework.Wrappers.EA
     {
     	get 
     	{
-    		string wrappedType = this.wrappedElement.Type;
+    	
+    		string wrappedType = (string)this.getProperty(getPropertyNameName(),this.wrappedElement.Type);
     		//PackagingComponents have Package as Type and 20 as subtype
     		if (wrappedType == "Package" && wrappedElement.Subtype == 20)
     		{
@@ -151,7 +263,7 @@ namespace TSF.UmlToolingFramework.Wrappers.EA
     		}
     		return wrappedType;
     	}
-    	set {this.wrappedElement.Type = value;}
+    	set {this.setProperty(getPropertyNameName(),value,this.wrappedElement.Type);}
     }
     
     public global::EA.Element WrappedElement {
@@ -167,35 +279,8 @@ namespace TSF.UmlToolingFramework.Wrappers.EA
 		return null;
     }
     
-    /// indicates whether this element is abstract.
-    /// In the EA API this is stored as a string with the values "0" or "1"
-    public bool isAbstract {
-      get { return this.wrappedElement.Abstract == "1"; }
-      set { this.wrappedElement.Abstract = value ? "1" : "0"; }
-    }
-	public override int position 
-	{
-		get 
-		{
-			return wrappedElement.TreePos;
-		}
-		set 
-		{
-			this.wrappedElement.TreePos = value;
-		}
-	}
-    /// the visibility indicates the scope of the element
-    public UML.Classes.Kernel.VisibilityKind visibility {
-      get {
-        return VisibilityKind.getUMLVisibilityKind
-          ( this.wrappedElement.Visibility, 
-            UML.Classes.Kernel.VisibilityKind._public );
-      }
-      set {
-        this.wrappedElement.Visibility = 
-          VisibilityKind.getEAVisibility(value);
-      }
-    }
+
+
 
     /// returns the attributes owned by this class
     /// This seems to be a subset of the classifiers attributes property, but 
@@ -270,29 +355,7 @@ namespace TSF.UmlToolingFramework.Wrappers.EA
     	}
       set { throw new NotImplementedException(); }
     }
-    public void setStereotype(string stereotype)
-    {
-    	this.wrappedElement.StereotypeEx = stereotype;
-    }
-    public override HashSet<UML.Profiles.Stereotype> stereotypes {
-      get 
-      {
-    		Factory factory = (Factory)this.model.factory;
-    		if (this.wrappedElement != null)
-    		{
-	    		string stereotypeString = this.wrappedElement.StereotypeEx;
-	        	return factory.createStereotypes(this, stereotypeString );
-    		}
-    		else
-    		{
-    			return new HashSet<UML.Profiles.Stereotype>();
-    		}
-      }
-      set 
-      {
-      	this.wrappedElement.StereotypeEx = Stereotype.getStereotypeEx(value);
-      }
-    }
+
 
     /// EA provides a shortcut tot the superclasses through its 
     /// element.BaseClasses
@@ -481,14 +544,9 @@ namespace TSF.UmlToolingFramework.Wrappers.EA
       return newElement;
     }
 
-    internal override void saveElement(){
-      this.wrappedElement.Update();
-    }
 
-    public override String notes {
-      get { return this.wrappedElement.Notes;  }
-      set { this.wrappedElement.Notes = value; }
-    }
+
+
     public virtual HashSet<TSF.UmlToolingFramework.UML.Diagrams.Diagram> ownedDiagrams {
 		get {
     		HashSet<TSF.UmlToolingFramework.UML.Diagrams.Diagram> diagrams = new HashSet<TSF.UmlToolingFramework.UML.Diagrams.Diagram>();
@@ -726,10 +784,6 @@ namespace TSF.UmlToolingFramework.Wrappers.EA
 			return new HashSet<UML.Profiles.TaggedValue>(this.model.factory.createTaggedValues(this.wrappedElement.TaggedValues));
 		}
 		set { throw new NotImplementedException();}
-	}
-	public override HashSet<TSF.UmlToolingFramework.UML.Profiles.TaggedValue> getReferencingTaggedValues()
-	{
-		return this.model.getTaggedValuesWithValue(this.wrappedElement.ElementGUID);
 	}
   	
 	public override TSF.UmlToolingFramework.UML.Diagrams.Diagram compositeDiagram 

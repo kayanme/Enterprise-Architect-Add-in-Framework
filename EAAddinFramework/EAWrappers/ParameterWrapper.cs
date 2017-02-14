@@ -56,7 +56,25 @@ namespace TSF.UmlToolingFramework.Wrappers.EA {
       }
       set { throw new NotImplementedException(); }
     }
-    
+
+	#region implemented abstract members of Parameter
+	public override uint position 
+	{
+		get 
+		{
+			uint returnValue;
+			if (! uint.TryParse(this.wrappedParameter.Position.ToString(), out returnValue))
+			{
+				returnValue = 0;
+			}
+			return returnValue;
+		}
+		set 
+		{
+			this.wrappedParameter.Position = (int)value;
+		}
+	}
+	#endregion    
     public override UML.Classes.Kernel.ParameterDirectionKind direction {
       get {
         return ParameterDirectionKind.getUMLParameterDirectionkind
@@ -188,10 +206,6 @@ namespace TSF.UmlToolingFramework.Wrappers.EA {
 			return new HashSet<UML.Profiles.TaggedValue>(this.model.factory.createTaggedValues(this.wrappedParameter.TaggedValues));
 		}
 		set { throw new NotImplementedException();}
-	}
-	public override HashSet<TSF.UmlToolingFramework.UML.Profiles.TaggedValue> getReferencingTaggedValues()
-	{
-		return this.model.getTaggedValuesWithValue(this.wrappedParameter.ParameterGUID);
 	}
   	
 	internal override global::EA.Collection eaTaggedValuesCollection {
