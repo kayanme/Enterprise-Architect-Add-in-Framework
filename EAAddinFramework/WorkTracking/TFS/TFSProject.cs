@@ -15,6 +15,7 @@ using Newtonsoft.Json.Linq;
 using System.Net.Http.Headers;
 using TSF.UmlToolingFramework.Wrappers.EA;
 using UML=TSF.UmlToolingFramework.UML;
+using System.Configuration;
 
 namespace EAAddinFramework.WorkTracking.TFS
 {
@@ -23,10 +24,9 @@ namespace EAAddinFramework.WorkTracking.TFS
 	/// </summary>
 	public class TFSProject:Project
 	{
-		 //TFS constants
-        const string tfsCollection = "DefaultCollection/";
+        
         //variables
-		internal TFSSettings settings {get;set;}
+        internal TFSSettings settings {get;set;}
 		internal string TFSUrl {get;set;}
 		private List<WorkItem> _workitems;
 		AuthenticationHeaderValue _authorization;
@@ -52,13 +52,13 @@ namespace EAAddinFramework.WorkTracking.TFS
 		public TFSProject(Package packageToWrap,string TFSUrl, TFSSettings settings):base(packageToWrap)
 		{
 			this.settings = settings;
-			this.TFSUrl = TFSUrl + tfsCollection;
+			this.TFSUrl = TFSUrl + this.settings.defaultCollection;
 		}
 		public TFSProject(string projectName,string TFSUrl, TFSSettings settings)
 		{
 			this.settings = settings;
 			this.name = projectName;
-			this.TFSUrl = TFSUrl + tfsCollection;
+			this.TFSUrl = TFSUrl + this.settings.defaultCollection;
 		}
 		public static TFSProject getCurrentProject(Element currentElement,string TFSUrl, TFSSettings settings)
 		{
@@ -89,14 +89,15 @@ namespace EAAddinFramework.WorkTracking.TFS
 				throw new NotImplementedException();
 			}
 		}
-		
-		/// <summary>
-		/// returns all owned workitems for this package and if requested for all owned packages recursively
-		/// </summary>
-		/// <param name="ownerPackage">the owner package</param>
-		/// <param name="recursive">indicates whether or not we should recursively search workitems in owned packages</param>
-		/// <returns>a list of owned workitems for the given package</returns>
-		public override List<WT.Workitem> getOwnedWorkitems(UML.Classes.Kernel.Package ownerPackage, bool recursive)
+
+
+        /// <summary>
+        /// returns all owned workitems for this package and if requested for all owned packages recursively
+        /// </summary>
+        /// <param name="ownerPackage">the owner package</param>
+        /// <param name="recursive">indicates whether or not we should recursively search workitems in owned packages</param>
+        /// <returns>a list of owned workitems for the given package</returns>
+        public override List<WT.Workitem> getOwnedWorkitems(UML.Classes.Kernel.Package ownerPackage, bool recursive)
 		{
 			List<WT.Workitem> foundWorkItems = new List<WT.Workitem>();
 			var elementTypes = settings.mappedElementTypes;
